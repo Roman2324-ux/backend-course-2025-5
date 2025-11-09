@@ -71,11 +71,23 @@ try {
         break;
 
       case 'DELETE':
+        try {
+          await fs.promises.unlink(filePath);
+          res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
+          res.end('200 - The image has been successfully deleted from the cache.');
+          } catch (error) {
+          if (error.code === 'ENOENT') {
+            res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+            res.end('404 - Image not found in cache');
+          } else {
+            throw error;
+          }
+        }
         break;
-
+        
       default:
-        res.writeHead(405, { 'Content-Type': 'text/plain; charset=utf-8' });
         res.setHeader('Allow', 'GET, PUT, DELETE');
+        res.writeHead(405, { 'Content-Type': 'text/plain; charset=utf-8' });
         res.end('Method not allowed. Please use GET, PUT, or DELETE.');
     }
 
