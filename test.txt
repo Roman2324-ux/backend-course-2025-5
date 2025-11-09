@@ -20,4 +20,5 @@ curl -i -X DELETE http://localhost:8080/201
 
 Тестування 405
 1.Перевірка, чи сервер блокує метод, який не реалізований, наприклад POST.
+curl -i -X POST http://localhost:8080/200
 
