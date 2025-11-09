@@ -2,6 +2,7 @@ const { program } = require('commander');
 const fs = require('fs');
 const path = require('path');
 const http = require('http');
+const superagent = require('superagent');
 
 program
   .requiredOption('-p, --port <number>', 'server port')
@@ -35,25 +36,41 @@ try {
     }
     const fileName = req.url.substring(1) + '.jpg';
     const filePath = path.join(cacheDir, fileName);
-
     console.log(`[REQUEST] ${req.method} ${req.url} -> ${filePath}`);
+
     switch (req.method) {
       case 'GET':
         try {
           const data = await fs.promises.readFile(filePath);
+          console.log(`[CACHE HIT] Serving ${fileName} from cache.`);
           res.writeHead(200, { 'Content-Type': 'image/jpeg' });
           res.end(data);
 
         } catch (error) {
           if (error.code === 'ENOENT') {
-            res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
-            res.end('404 - Image not found in cache');
+            console.log(`[CACHE MISS] File ${fileName} not found. Fetching from http.cat...`);
+            const statusCode = fileName.replace('.jpg', '');
+            const targetUrl = `https://http.cat/${statusCode}`;
+            try {
+              const targetRes = await superagent.get(targetUrl)
+                .responseType('blob');
+              const imageData = targetRes.body;
+              fs.promises.writeFile(filePath, imageData)
+                .then(() => console.log(`[CACHE WRITE] Saved ${fileName} to cache.`))
+                .catch(cacheErr => console.error('[CACHE ERROR] Failed to save to cache:', cacheErr));
+              res.writeHead(200, { 'Content-Type': 'image/jpeg' });
+              res.end(imageData);
+            } catch (fetchError) {  
+              console.error(`[FETCH ERROR] Failed to fetch ${targetUrl}:`, fetchError.status || fetchError.message);
+              res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+              res.end(`404 - Image not found in cache OR at http.cat (Status: ${fetchError.status || 'Error'})`);
+            }
           } else {
             throw error;
           }
         }
         break;
-
+        
       case 'PUT':
         try {
           const chunks = [];
